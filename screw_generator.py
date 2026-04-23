@@ -13,21 +13,65 @@ class Screw:
         self.tolerance_inset = tolerance_inset
 
     def generate_threaded_screw(self):
-        # Here would go the algorithm to create a screw mesh using helical threading
-        # This is a placeholder for the actual STL generation logic
-        points = []  # Replace with actual screw points calculation
-        # Example logic for creating a cylinder
-        for i in range(int(self.screw_length / self.pitch)):
-            angle = 2 * np.pi * i / (self.screw_length / self.pitch)
-            z = i * self.pitch
-            points.append((self.outer_radius * np.cos(angle), self.outer_radius * np.sin(angle), z))
-        return points
+        """Generate helical threading points for a screw"""
+        triangles = []
+        num_turns = self.screw_length / self.pitch
+        points_per_turn = 12  # Resolution of the helix
+        total_points = int(num_turns * points_per_turn)
+        
+        # Generate points along the helix
+        points = []
+        for i in range(total_points + 1):
+            z = (i / points_per_turn) * self.pitch
+            if z > self.screw_length:
+                z = self.screw_length
+            
+            angle = 2 * np.pi * i / points_per_turn
+            
+            # Create the thread profile with crest and root
+            # Crest (outer edge)
+            crest_z = z + self.crest_length / 2
+            if crest_z <= self.screw_length:
+                points.append([
+                    self.outer_radius * np.cos(angle),
+                    self.outer_radius * np.sin(angle),
+                    crest_z
+                ])
+            
+            # Root (inner edge)
+            root_z = z - self.root_length / 2
+            if root_z >= 0:
+                points.append([
+                    self.inner_radius * np.cos(angle),
+                    self.inner_radius * np.sin(angle),
+                    root_z
+                ])
+        
+        return np.array(points)
 
     def get_mesh(self):
-        # Generate mesh from screw points
+        """Generate mesh from screw points"""
         screw_points = self.generate_threaded_screw()
-        # Create a mesh from points and return
-        return screw_points  # Need actual STl mesh return here
+        
+        if len(screw_points) < 3:
+            return None
+        
+        # Create triangles from points (simplified triangulation)
+        triangles = []
+        num_points = len(screw_points)
+        
+        for i in range(num_points - 2):
+            triangles.append([i, i + 1, i + 2])
+        
+        # Create mesh object
+        screw_mesh = mesh.Mesh(np.zeros(len(triangles), dtype=mesh.Mesh.dtype))
+        
+        for idx, triangle in enumerate(triangles):
+            for i in range(3):
+                screw_mesh.vectors[idx][i] = screw_points[triangle[i]]
+        
+        return screw_mesh
+
 
 class Cuboid:
     def __init__(self, width, depth, height, screw_inner_radius, screw_outer_radius, taper=0, tolerance_inset=0):
@@ -40,17 +84,75 @@ class Cuboid:
         self.tolerance_inset = tolerance_inset
 
     def generate_cuboid_with_threaded_hole(self):
-        # Here would go the algorithm to create a cuboid mesh with a threaded hole
-        # This is a placeholder for the actual STL generation logic
-        points = []  # Replace with actual hole points calculation
-        # Example logic for creating a cuboid with hole
-        return points
+        """Generate cuboid with threaded hole"""
+        # Create cuboid vertices (box centered at origin)
+        half_w = self.width / 2
+        half_d = self.depth / 2
+        
+        vertices = np.array([
+            # Bottom face
+            [-half_w, -half_d, 0],
+            [half_w, -half_d, 0],
+            [half_w, half_d, 0],
+            [-half_w, half_d, 0],
+            # Top face
+            [-half_w, -half_d, self.height],
+            [half_w, -half_d, self.height],
+            [half_w, half_d, self.height],
+            [-half_w, half_d, self.height],
+        ])
+        
+        # Define faces of the cuboid (2 triangles per face)
+        triangles = np.array([
+            # Bottom face
+            [0, 1, 2], [0, 2, 3],
+            # Top face
+            [4, 6, 5], [4, 7, 6],
+            # Front face
+            [0, 5, 1], [0, 4, 5],
+            # Back face
+            [2, 7, 3], [2, 6, 7],
+            # Left face
+            [0, 3, 7], [0, 7, 4],
+            # Right face
+            [1, 5, 6], [1, 6, 2],
+        ])
+        
+        # Add threaded hole representation (cylinder approximation)
+        num_segments = 16
+        for i in range(num_segments):
+            angle1 = 2 * np.pi * i / num_segments
+            angle2 = 2 * np.pi * (i + 1) / num_segments
+            
+            # Top circle points
+            p1 = np.array([self.screw_outer_radius * np.cos(angle1), 
+                          self.screw_outer_radius * np.sin(angle1), self.height])
+            p2 = np.array([self.screw_outer_radius * np.cos(angle2), 
+                          self.screw_outer_radius * np.sin(angle2), self.height])
+            # Bottom circle points
+            p3 = np.array([self.screw_outer_radius * np.cos(angle1), 
+                          self.screw_outer_radius * np.sin(angle1), 0])
+            p4 = np.array([self.screw_outer_radius * np.cos(angle2), 
+                          self.screw_outer_radius * np.sin(angle2), 0])
+            
+            vertices = np.vstack([vertices, p1, p2, p3, p4])
+        
+        return vertices, triangles
 
     def get_mesh(self):
-        # Generate mesh from cuboid points
-        cuboid_hole_points = self.generate_cuboid_with_threaded_hole()
-        # Create a mesh from points and return
-        return cuboid_hole_points  # Need actual STL mesh return here
+        """Generate mesh from cuboid points"""
+        vertices, triangles = self.generate_cuboid_with_threaded_hole()
+        
+        # Create mesh object
+        cuboid_mesh = mesh.Mesh(np.zeros(len(triangles), dtype=mesh.Mesh.dtype))
+        
+        for idx, triangle in enumerate(triangles):
+            for i in range(3):
+                if triangle[i] < len(vertices):
+                    cuboid_mesh.vectors[idx][i] = vertices[triangle[i]]
+        
+        return cuboid_mesh
+
 
 # You can create instances of Screw and Cuboid classes and generate STL files.
 
@@ -60,4 +162,12 @@ if __name__ == "__main__":
     cuboid = Cuboid(width=15, depth=15, height=10, screw_inner_radius=screw.inner_radius, screw_outer_radius=screw.outer_radius)
     screw_mesh = screw.get_mesh()
     cuboid_mesh = cuboid.get_mesh()
-    # Code to save meshes as STL files would go here.
+    
+    # Save meshes as STL files
+    if screw_mesh:
+        screw_mesh.save('screw.stl')
+        print("Screw mesh saved as screw.stl")
+    
+    if cuboid_mesh:
+        cuboid_mesh.save('cuboid.stl')
+        print("Cuboid mesh saved as cuboid.stl")
