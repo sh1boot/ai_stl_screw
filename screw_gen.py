@@ -252,25 +252,21 @@ def build_nut(r_inner, r_outer, pitch, crest_frac, root_frac,
 
     tris = []
 
-    # Bore surfaces: normals face into the bore (toward the axis), so windings
-    # are reversed compared to the equivalent screw surfaces.
+    # Bore surface: only the thread-profile surface.
+    # The smooth inner shaft cylinder is intentionally omitted — it would sit
+    # in front of the thread grooves and make the bore look un-threaded.
+    # Using the same winding as the screw gives inward-pointing normals
+    # (toward the bore axis), which is correct for a cavity surface.
     for s in range(total_steps):
-        rs0, rs1 = rings_shaft[s],  rings_shaft[s + 1]
         rt0, rt1 = rings_thread[s], rings_thread[s + 1]
 
         for i in range(n_sides):
             j = (i + 1) % n_sides
-            # Inner bore wall (reversed winding = normal points away from axis)
-            tris += quad_tris(rs0[j], rs0[i], rs1[j], rs1[i])
-            # Outer thread tip (reversed)
-            tris += quad_tris(rt0[j], rt0[i], rt1[j], rt1[i])
+            tris += quad_tris(rt0[i], rt0[j], rt1[i], rt1[j])
 
-        # Bottom annular of bore (s=0): faces upward into the bore
-        if s == 0:
-            tris += annular_tris(rings_shaft[0], rings_thread[0], reverse=False)
-
-    # Top annular of bore: faces downward into the bore
-    tris += annular_tris(rings_shaft[-1], rings_thread[-1], reverse=True)
+    # The thread surface open ends connect directly to the square-face holes
+    # (both use rings_thread[0] / rings_thread[-1] as boundary), so no
+    # separate bore-end annular faces are needed.
 
     # ---- Outer cuboid ----
     box = ro_base + box_margin   # half-size of the square cross-section
