@@ -272,15 +272,6 @@ def build_nut(r_inner, r_outer, pitch, crest_frac, root_frac,
     # Top annular of bore: faces downward into the bore
     tris += annular_tris(rings_shaft[-1], rings_thread[-1], reverse=True)
 
-    # Bore end caps (close the bore openings with a disk that has a hole)
-    # Bottom bore opening (z=0): exposed face of the block, normal points down
-    c_bot = (0.0, 0.0, 0.0)
-    tris += fan_cap(c_bot, rings_shaft[0], reverse=False)
-
-    # Top bore opening (z=length): exposed face, normal points up
-    c_top = (0.0, 0.0, length)
-    tris += fan_cap(c_top, rings_shaft[-1], reverse=True)
-
     # ---- Outer cuboid ----
     box = ro_base + box_margin   # half-size of the square cross-section
     z0, z1 = 0.0, length
